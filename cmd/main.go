@@ -1,5 +1,8 @@
 package main
 
+import service "go_cv_test/routers"
+
 func main() {
-	println("Hello")
+	s := service.GetService()
+	s.Run()
 }
