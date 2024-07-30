@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -56,5 +57,19 @@ func (service *VideoService) Run() {
 	router.GET("/upload", func(c *gin.Context) {
 		c.HTML(200, "main.html", gin.H{})
 	})
+
+	router.GET("/status", func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Query("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Unable to process id")
+		}
+		video, err := service.vP.GetVideo(int32(id))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, err.Error())
+		} else {
+			c.JSON(http.StatusOK, video)
+		}
+	})
+
 	router.Run(":8080")
 }
