@@ -13,18 +13,18 @@ import (
 )
 
 type VideoService struct {
+	vP *videoProcessor.VideoProcessor
 }
 
 func GetService() VideoService {
-	return VideoService{}
+	return VideoService{vP: videoProcessor.GetVideoProcessor(runtime.NumCPU())}
 }
 
 func (service *VideoService) Run() {
 	router := gin.Default()
 	router.Static("/static", "../web/static")
 	router.LoadHTMLFiles("../web/static/templates/main.html")
-	v := videoProcessor.GetVideoProcessor(runtime.NumCPU())
-	log.Printf("Videos will be proceed with %d cores", v.CPUs)
+	log.Printf("Videos will be proceed with %d cores", service.vP.CPUs)
 	// Set a lower memory limit for multipart forms (default is 32 MiB)
 	router.MaxMultipartMemory = 8 << 20 // 8 MiB
 
@@ -43,7 +43,7 @@ func (service *VideoService) Run() {
 		log.Printf("Start processing file...")
 		wg := sync.WaitGroup{}
 		wg.Add(1)
-		go v.ProcessVideo(path, v.XMLfile)
+		go service.vP.ProcessVideo(path, service.vP.XMLfile, file.Filename)
 		wg.Wait()
 		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 	})

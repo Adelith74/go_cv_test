@@ -6,21 +6,23 @@ import (
 	"image/color"
 	"os"
 	"strconv"
+	"sync/atomic"
 
 	"gocv.io/x/gocv"
 )
 
-type videoProcessor struct {
-	CPUs    int
-	Chanel  chan struct{}
-	XMLfile string
+type VideoProcessor struct {
+	CPUs      int
+	Chanel    chan struct{}
+	XMLfile   string
+	grCounter atomic.Int32
 }
 
-func GetVideoProcessor(numOfCores int) videoProcessor {
-	return videoProcessor{CPUs: numOfCores, Chanel: make(chan struct{}, numOfCores), XMLfile: "../haarcascade_frontalface_default.xml"}
+func GetVideoProcessor(numOfCores int) *VideoProcessor {
+	return &VideoProcessor{CPUs: numOfCores, Chanel: make(chan struct{}, numOfCores), XMLfile: "../haarcascade_frontalface_default.xml"}
 }
 
-func (vP *videoProcessor) WebDetect() {
+func (vP *VideoProcessor) WebDetect() {
 	if len(os.Args) < 3 {
 		fmt.Println("How to run:\n\tfacedetect [camera ID] [classifier XML file]")
 		return
@@ -90,8 +92,9 @@ func (vP *videoProcessor) WebDetect() {
 	}
 }
 
-func (vP *videoProcessor) ProcessVideo(videoFile, xmlFile string) {
-	//var file = <-vP.Chanel
+// fileName is used nothing, but logging file name
+func (vP *VideoProcessor) ProcessVideo(videoFile, xmlFile, fileName string) {
+	vP.Chanel <- struct{}{}
 	//open video file
 	video, err := gocv.VideoCaptureFile(videoFile)
 	if err != nil {
@@ -99,6 +102,10 @@ func (vP *videoProcessor) ProcessVideo(videoFile, xmlFile string) {
 		return
 	}
 	defer video.Close()
+
+	var gr = vP.grCounter.Add(1)
+	defer vP.grCounter.Add(-1)
+	var frame_counter int64 = 1
 
 	// prepare image matrix
 	img := gocv.NewMat()
@@ -114,7 +121,7 @@ func (vP *videoProcessor) ProcessVideo(videoFile, xmlFile string) {
 	}
 
 	fmt.Printf("start reading video from: %s\n", videoFile)
-	var frame_counter int64 = 1
+
 	for {
 		if ok := video.Read(&img); !ok {
 			fmt.Printf("cannot read video from file %s\n", videoFile)
@@ -126,7 +133,8 @@ func (vP *videoProcessor) ProcessVideo(videoFile, xmlFile string) {
 
 		// detect faces
 		rects := classifier.DetectMultiScale(img)
-		fmt.Printf("found %d faces on frame %d of \n", len(rects), frame_counter)
+		fmt.Printf("%d: found %d faces on frame %d of %s\n", gr, len(rects), frame_counter, fileName)
 		frame_counter++
 	}
+
 }
