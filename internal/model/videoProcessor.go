@@ -3,6 +3,7 @@ package videoProcessor
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 
@@ -34,6 +35,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 	var gr = vP.grCounter.Add(1)
 	defer vP.grCounter.Add(-1)
 	var frame_counter int64 = 1
+	var total_frames = video.Get(gocv.VideoCaptureProperties(7))
 
 	// prepare image matrix
 	img := gocv.NewMat()
@@ -51,6 +53,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 	fmt.Printf("start reading video from: %s\n", videoFile)
 
 	for {
+		var progress = float64(frame_counter) / total_frames * 100
 		select {
 		case <-ctx.Done():
 			wg.Done()
@@ -67,7 +70,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 
 			// detect faces
 			rects := classifier.DetectMultiScale(img)
-			fmt.Printf("%d: found %d faces on frame %d of %s\n", gr, len(rects), frame_counter, fileName)
+			log.Printf("%d - %.2f%%: found %d faces on frame %d of %s\n", gr, progress, len(rects), frame_counter, fileName)
 			frame_counter++
 		}
 	}
