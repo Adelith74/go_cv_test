@@ -100,7 +100,9 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 		Status:     0,
 		Name:       fileName,
 		Percentage: 0.0}
+	//here we write data about video into chanel, which is read by one goroutine
 	vP.dataBuffer <- vidInfo
+	//here we signal that we want to start a new video processing, it will waint until channel will have space
 	vP.chanel <- struct{}{}
 	vidInfo.Status = 1
 	vP.dataBuffer <- vidInfo
@@ -112,8 +114,10 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 	}
 	defer video.Close()
 
+	//count goroutine id
 	var gr = vP.grCounter.Add(1)
 	defer vP.grCounter.Add(-1)
+
 	var frame_counter int64 = 1
 	var total_frames = video.Get(gocv.VideoCaptureProperties(7))
 
@@ -134,6 +138,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 
 	fmt.Printf("start reading video from: %s\n", videoFile)
 
+	//here we look at what status video has, if it's changes, we perform action as a response
 	for {
 		var progress = float64(frame_counter) / total_frames * 100
 		select {
@@ -152,7 +157,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 				vidInfo.Percentage = progress
 				vP.dataBuffer <- vidInfo
 			}
-		//if request is canceled, goroutine is shutting down
+		//if request was canceled, goroutine is shutting down
 		case <-ctx.Done():
 			vidInfo.Status = 3
 			vidInfo.Percentage = progress
