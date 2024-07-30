@@ -27,6 +27,7 @@ const (
 )
 
 type Video struct {
+	Id         int32       `json:"id"`
 	Status     VideoStatus `json:"video_status"`
 	Percentage float64     `json:"percentage"`
 	Name       string      `json:"name"`
@@ -36,7 +37,7 @@ type VideoProcessor struct {
 	//stores max amount of CPUs
 	CPUs int
 	//this chanel is used for limiting max amount of working goroutines
-	Chanel chan struct{}
+	chanel chan struct{}
 	//used for xml classifier file
 	XMLfile string
 	//used for counting amount of goroutines
@@ -44,14 +45,16 @@ type VideoProcessor struct {
 	//used for generating id for each processing video
 	processId atomic.Int32
 	//stores videos
-	Videos map[int32]Video
+	videos map[int32]Video
 	//used for pausing goroutines with provived video id
-	Switcher chan int32
+	switcher chan int32
+	//used for runVideoUpdater(), this is a buffered channel
+	dataBuffer chan Video
 }
 
 // accepts video id and returns founded video
 func (vP *VideoProcessor) GetVideo(id int32) (Video, error) {
-	val, ok := vP.Videos[id]
+	val, ok := vP.videos[id]
 	if !ok {
 		return Video{}, fmt.Errorf("unable to find video with given id")
 	}
@@ -60,7 +63,7 @@ func (vP *VideoProcessor) GetVideo(id int32) (Video, error) {
 
 // switches state for video with provided id
 func (vP *VideoProcessor) SwitchState(id int32) {
-	vP.Switcher <- id
+	vP.switcher <- id
 }
 
 // returns ready for work VideoProcessor,
@@ -68,34 +71,39 @@ func GetVideoProcessor(numOfCores int) *VideoProcessor {
 	if numOfCores < 1 {
 		numOfCores = 1
 	}
-	return &VideoProcessor{
-		CPUs:     numOfCores,
-		Chanel:   make(chan struct{}, numOfCores),
-		XMLfile:  "../haarcascade_frontalface_default.xml",
-		Videos:   make(map[int32]Video),
-		Switcher: make(chan int32)}
+	vp := VideoProcessor{
+		CPUs:       numOfCores,
+		chanel:     make(chan struct{}, numOfCores),
+		XMLfile:    "../haarcascade_frontalface_default.xml",
+		videos:     make(map[int32]Video),
+		switcher:   make(chan int32),
+		dataBuffer: make(chan Video, numOfCores)}
+	vp.runVideoUpdater()
+	return &vp
 }
 
-// This method provides abiliti to update video info during processing
-// it locks map
-func (vP *VideoProcessor) updateVideo(id int32, name string, status VideoStatus, percentage float64) {
-	mutex := sync.RWMutex{}
-	mutex.Lock()
-	copy, _ := vP.Videos[id]
-	copy.Name = name
-	copy.Percentage = percentage
-	copy.Status = status
-	vP.Videos[id] = copy
-	mutex.Unlock()
+// This method is used for running goroutine that can write everything that comes from channel to a map
+func (vP *VideoProcessor) runVideoUpdater() {
+	go func() {
+		for {
+			var data = <-vP.dataBuffer
+			vP.videos[data.Id] = data
+		}
+	}()
 }
 
 // fileName is used nothing, but logging file name
 func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, fileName string, wg *sync.WaitGroup) {
 	var id = vP.processId.Add(1)
 	status := true
-	vP.updateVideo(id, fileName, 0, 0.0)
-	vP.Chanel <- struct{}{}
-	vP.updateVideo(id, fileName, 1, 0.0)
+	vidInfo := Video{Id: id,
+		Status:     0,
+		Name:       fileName,
+		Percentage: 0.0}
+	vP.dataBuffer <- vidInfo
+	vP.chanel <- struct{}{}
+	vidInfo.Status = 1
+	vP.dataBuffer <- vidInfo
 	//open video file
 	video, err := gocv.VideoCaptureFile(videoFile)
 	if err != nil {
@@ -119,7 +127,8 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 
 	if !classifier.Load(xmlFile) {
 		fmt.Printf("Error reading cascade file: %v\n", xmlFile)
-		vP.updateVideo(id, fileName, 2, 0.0)
+		vidInfo.Status = 2
+		vP.dataBuffer <- vidInfo
 		return
 	}
 
@@ -128,28 +137,38 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 	for {
 		var progress = float64(frame_counter) / total_frames * 100
 		select {
-		case sw := <-vP.Switcher:
+		case sw := <-vP.switcher:
 			if sw == id {
 				status = !status
 			}
 			if status {
 				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was resumed\n", gr, id, progress, fileName)
-				vP.updateVideo(id, fileName, 1, progress)
+				vidInfo.Status = 1
+				vidInfo.Percentage = progress
+				vP.dataBuffer <- vidInfo
 			} else {
 				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was paused\n", gr, id, progress, fileName)
-				vP.updateVideo(id, fileName, 5, progress)
+				vidInfo.Status = 5
+				vidInfo.Percentage = progress
+				vP.dataBuffer <- vidInfo
 			}
 		//if request is canceled, goroutine is shutting down
 		case <-ctx.Done():
-			vP.updateVideo(id, fileName, 3, progress)
+			vidInfo.Status = 3
+			vidInfo.Percentage = progress
+			vP.dataBuffer <- vidInfo
 			wg.Done()
 			return
 		default:
 			if status {
-				vP.updateVideo(id, fileName, 1, progress)
+				vidInfo.Status = 1
+				vidInfo.Percentage = progress
+				vP.dataBuffer <- vidInfo
 				if ok := video.Read(&img); !ok {
 					fmt.Printf("cannot read video from file %s\n", videoFile)
-					vP.updateVideo(id, fileName, 4, progress)
+					vidInfo.Status = 4
+					vidInfo.Percentage = 100.0
+					vP.dataBuffer <- vidInfo
 					wg.Done()
 					return
 				}
