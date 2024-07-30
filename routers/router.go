@@ -71,5 +71,19 @@ func (service *VideoService) Run() {
 		}
 	})
 
+	//this route is used for pausing and unpausing videos from proceeding, paused goroutines wont be deleted
+	router.POST("/switch_state", func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Query("id"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "Unable to process id")
+		}
+		service.vP.SwitchState(int32(id))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, err.Error())
+		} else {
+			c.JSON(http.StatusOK, gin.H{})
+		}
+	})
+
 	router.Run(":8080")
 }
