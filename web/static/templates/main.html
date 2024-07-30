@@ -6,16 +6,19 @@
     <link rel="stylesheet" href="/static/styles/styles.css">
     <link rel="icon" type="image/x-icon" href="/static/img/eye.ico">
     <title>Go CV</title>
-    <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
     <div style="display: flex; flex-direction: column; gap: 5px;">
         <h1 style="text-align: center; font-family: Montserrat;">Go CV</h1>
         <p style="text-align: center; font-family: Montserrat;">Drop your video below to start processing it's frames</p>
-        <input value="Choose" type="file" accept=".wav, .mp4" style="text-align: center; font-family: Montserrat; margin: auto; text-align: center;">
+        <input id="drop_file" value="Choose" type="file" accept=".mp4" style="text-align: center; font-family: Montserrat; margin-bottom: 10px; text-align: center;">
     </div>
-    <div style="display: none;">
+    <div id="list">
+
+    </div>
+    <div>
         <label for="file">File progress:</label>
         <progress id="file" max="100" value="10"></progress>
     </div>
+    <script src="/static/scripts/addVideo.js"></script>
 </body>

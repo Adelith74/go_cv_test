@@ -33,15 +33,23 @@ type Video struct {
 }
 
 type VideoProcessor struct {
-	CPUs      int
-	Chanel    chan struct{}
-	XMLfile   string
+	//stores max amount of CPUs
+	CPUs int
+	//this chanel is used for limiting max amount of working goroutines
+	Chanel chan struct{}
+	//used for xml classifier file
+	XMLfile string
+	//used for counting amount of goroutines
 	grCounter atomic.Int32
+	//used for generating id for each processing video
 	processId atomic.Int32
-	Videos    map[int32]Video
-	Switcher  chan int32
+	//stores videos
+	Videos map[int32]Video
+	//used for pausing goroutines with provived video id
+	Switcher chan int32
 }
 
+// accepts video id and returns founded video
 func (vP *VideoProcessor) GetVideo(id int32) (Video, error) {
 	val, ok := vP.Videos[id]
 	if !ok {
@@ -50,11 +58,16 @@ func (vP *VideoProcessor) GetVideo(id int32) (Video, error) {
 	return val, nil
 }
 
+// switches state for video with provided id
 func (vP *VideoProcessor) SwitchState(id int32) {
 	vP.Switcher <- id
 }
 
+// returns ready for work VideoProcessor,
 func GetVideoProcessor(numOfCores int) *VideoProcessor {
+	if numOfCores < 1 {
+		numOfCores = 1
+	}
 	return &VideoProcessor{
 		CPUs:     numOfCores,
 		Chanel:   make(chan struct{}, numOfCores),
@@ -63,6 +76,8 @@ func GetVideoProcessor(numOfCores int) *VideoProcessor {
 		Switcher: make(chan int32)}
 }
 
+// This method provides abiliti to update video info during processing
+// it locks map
 func (vP *VideoProcessor) updateVideo(id int32, name string, status VideoStatus, percentage float64) {
 	mutex := sync.RWMutex{}
 	mutex.Lock()
