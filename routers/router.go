@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"context"
 	"fmt"
 	videoProcessor "go_cv_test/internal/model"
 	"log"
@@ -43,8 +44,12 @@ func (service *VideoService) Run() {
 		log.Printf("Start processing file...")
 		wg := sync.WaitGroup{}
 		wg.Add(1)
-		go service.vP.ProcessVideo(path, service.vP.XMLfile, file.Filename)
+		go service.vP.ProcessVideo(c.Request.Context(), path, service.vP.XMLfile, file.Filename, &wg)
 		wg.Wait()
+		if c.Request.Context().Err() == context.Canceled {
+			log.Printf("Request for '%s' was aborted", file.Filename)
+			return
+		}
 		c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
 	})
 
