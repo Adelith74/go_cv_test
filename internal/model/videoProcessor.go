@@ -1,4 +1,4 @@
-package videoProcessor
+package model
 
 import (
 	"context"
