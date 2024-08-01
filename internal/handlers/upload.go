@@ -11,11 +11,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// UploadHtml godoc
+//
+//	@Summary		Get HTML main page
+//	@Description	Return main.html
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	int
+//	@Failure		400	{object}	int
+//	@Router			/upload [get]
+//
 // router.GET("/upload", UploadHtml)
 func (service *VideoService) UploadHtml(c *gin.Context) {
 	c.HTML(200, "main.html", gin.H{})
 }
 
+// UpdloadVideo godoc
+//
+//	@Summary		Upload video for processing
+//	@Description	Uploads and immidiately start video processing
+//	@Accept			json
+//	@Produce		json
+//	@Param			file	formData	file	true	"file"
+//	@Success		200		{object}	string
+//	@Failure		400		{object}	string
+//	@Router			/upload [post]
+//
 // //router.POST("/upload", func(c *gin.Context) {
 func (service *VideoService) UploadVideo(c *gin.Context) {
 	// single file

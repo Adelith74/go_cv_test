@@ -5,9 +5,44 @@
     },
     "basePath": "/api/v1",
     "paths": {
+        "/get_status": {
+            "post": {
+                "description": "Return current status, 0 - queue, 1 - processing, 2 - error, 3 - canceled, 4 - successful, 5 - paused",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get status of a video",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "id",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Video"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/switch_state": {
             "post": {
-                "description": "Switch by video ID",
+                "description": "Switch by video ID. This route is used for pausing and unpausing videos from proceeding, paused goroutines wont be deleted",
                 "consumes": [
                     "application/json"
                 ],
@@ -39,6 +74,103 @@
                     }
                 }
             }
+        },
+        "/upload": {
+            "get": {
+                "description": "Return main.html",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get HTML main page",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Uploads and immidiately start video processing",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Upload video for processing",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "model.Video": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "video_status": {
+                    "$ref": "#/definitions/model.VideoStatus"
+                }
+            }
+        },
+        "model.VideoStatus": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "InQueue",
+                "Processing",
+                "Error",
+                "Canceled",
+                "Successful",
+                "Paused"
+            ]
         }
     }
 }

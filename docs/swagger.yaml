@@ -1,12 +1,65 @@
 basePath: /api/v1
+definitions:
+  model.Video:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      percentage:
+        type: number
+      video_status:
+        $ref: '#/definitions/model.VideoStatus'
+    type: object
+  model.VideoStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    type: integer
+    x-enum-varnames:
+    - InQueue
+    - Processing
+    - Error
+    - Canceled
+    - Successful
+    - Paused
 info:
   contact: {}
 paths:
+  /get_status:
+    post:
+      consumes:
+      - application/json
+      description: Return current status, 0 - queue, 1 - processing, 2 - error, 3
+        - canceled, 4 - successful, 5 - paused
+      parameters:
+      - description: id
+        in: query
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Video'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Get status of a video
   /switch_state:
     post:
       consumes:
       - application/json
-      description: Switch by video ID
+      description: Switch by video ID. This route is used for pausing and unpausing
+        videos from proceeding, paused goroutines wont be deleted
       parameters:
       - description: id
         in: query
@@ -25,4 +78,43 @@ paths:
           schema:
             type: integer
       summary: Switch state of a video
+  /upload:
+    get:
+      consumes:
+      - application/json
+      description: Return main.html
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+      summary: Get HTML main page
+    post:
+      consumes:
+      - application/json
+      description: Uploads and immidiately start video processing
+      parameters:
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+      summary: Upload video for processing
 swagger: "2.0"
