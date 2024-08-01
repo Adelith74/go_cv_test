@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -62,8 +63,13 @@ func (vP *VideoProcessor) GetVideo(id int32) (Video, error) {
 }
 
 // switches state for video with provided id
-func (vP *VideoProcessor) SwitchState(id int32) {
+func (vP *VideoProcessor) SwitchState(id int32) error {
+	_, err := vP.GetVideo(id)
+	if err != nil {
+		return errors.New("unable to locate video with providen id")
+	}
 	vP.switcher <- id
+	return nil
 }
 
 // returns ready for work VideoProcessor,
@@ -82,7 +88,7 @@ func GetVideoProcessor(numOfCores int) *VideoProcessor {
 	return &vp
 }
 
-// This method is used for running goroutine that can write everything that comes from channel to a map
+// This method is used for running goroutine that can write everything that comes from channel to a map, we update video state here
 func (vP *VideoProcessor) runVideoUpdater() {
 	go func() {
 		for {

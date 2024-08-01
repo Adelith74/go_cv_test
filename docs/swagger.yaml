@@ -1,3 +1,4 @@
+basePath: /api/v1
 info:
   contact: {}
 paths:
@@ -8,8 +9,7 @@ paths:
       description: Switch by video ID
       parameters:
       - description: id
-        format: int32
-        in: path
+        in: query
         name: id
         required: true
         type: integer

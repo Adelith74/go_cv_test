@@ -3,6 +3,7 @@
     "info": {
         "contact": {}
     },
+    "basePath": "/api/v1",
     "paths": {
         "/switch_state": {
             "post": {
@@ -17,10 +18,9 @@
                 "parameters": [
                     {
                         "type": "integer",
-                        "format": "int32",
                         "description": "id",
                         "name": "id",
-                        "in": "path",
+                        "in": "query",
                         "required": true
                     }
                 ],
