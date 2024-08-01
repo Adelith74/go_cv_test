@@ -99,7 +99,7 @@ func (vP *VideoProcessor) runVideoUpdater() {
 }
 
 // fileName is used nothing, but logging file name
-func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, fileName string, wg *sync.WaitGroup) {
+func (vP *VideoProcessor) ProcessVideo(ctx context.Context, cancel context.CancelCauseFunc, videoFile, xmlFile, fileName string, wg *sync.WaitGroup) {
 	var id = vP.processId.Add(1)
 	status := true
 	vidInfo := Video{Id: id,
@@ -116,7 +116,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 	video, err := gocv.VideoCaptureFile(videoFile)
 	if err != nil {
 		fmt.Println(err)
-		return
+		cancel(errors.New("unable to process file"))
 	}
 	defer video.Close()
 
@@ -139,7 +139,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 		fmt.Printf("Error reading cascade file: %v\n", xmlFile)
 		vidInfo.Status = 2
 		vP.dataBuffer <- vidInfo
-		return
+		cancel(errors.New("unable to read cascade xml file"))
 	}
 
 	fmt.Printf("start reading video from: %s\n", videoFile)
@@ -169,7 +169,7 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, videoFile, xmlFile, 
 			vidInfo.Percentage = progress
 			vP.dataBuffer <- vidInfo
 			wg.Done()
-			return
+			cancel(errors.New("goroutine was canceled due to context cancel"))
 		default:
 			if status {
 				vidInfo.Status = 1

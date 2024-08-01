@@ -32,11 +32,12 @@ func (service *VideoService) UploadVideo(c *gin.Context) {
 	log.Printf("Start processing file...")
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go service.vP.ProcessVideo(c.Request.Context(), path, service.vP.XMLfile, file.Filename, &wg)
+	ctx, cancel := context.WithCancelCause(c.Request.Context())
+	go service.vP.ProcessVideo(ctx, cancel, path, service.vP.XMLfile, file.Filename, &wg)
 	wg.Wait()
-	if c.Request.Context().Err() == context.Canceled {
-		log.Printf("Request for '%s' was aborted", file.Filename)
+	if ctx.Err() == context.Canceled {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Request for '%s' was aborted due to: %s", file.Filename, ctx.Err().Error()))
 		return
 	}
-	c.String(http.StatusOK, fmt.Sprintf("'%s' uploaded!", file.Filename))
+	c.String(http.StatusOK, fmt.Sprintf("'%s' was processed successfully!", file.Filename))
 }
