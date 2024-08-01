@@ -1,5 +1,28 @@
-basePath: /api/v1
 info:
   contact: {}
-paths: {}
+paths:
+  /switch_state:
+    post:
+      consumes:
+      - application/json
+      description: Switch by video ID
+      parameters:
+      - description: id
+        format: int32
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: integer
+        "400":
+          description: Bad Request
+          schema:
+            type: integer
+      summary: Switch state of a video
 swagger: "2.0"

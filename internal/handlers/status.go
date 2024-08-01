@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET("/status",
 func (service *VideoService) GetStatus(c *gin.Context) {
 	id, err := strconv.Atoi(c.Query("id"))
 	if err != nil {

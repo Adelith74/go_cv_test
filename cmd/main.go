@@ -1,22 +1,11 @@
 package main
 
 import (
-	"go_cv_test/routers"
+	_ "go_cv_test/docs"
+	"go_cv_test/internal/handlers"
 )
 
-// @BasePath /api/v1
-
-// PingExample godoc
-// @Summary ping example
-// @Schemes
-// @Description do ping
-// @Tags example
-// @Accept json
-// @Produce json
-// @Success 200 {string} Helloworld
-// @Router /example/helloworld [get]
-
 func main() {
-	s := routers.GetService()
+	s := handlers.GetService()
 	s.Run()
 }
