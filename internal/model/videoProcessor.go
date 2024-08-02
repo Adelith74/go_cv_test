@@ -80,7 +80,7 @@ func GetVideoProcessor(numOfCores int) *VideoProcessor {
 	vp := VideoProcessor{
 		CPUs:       numOfCores,
 		chanel:     make(chan struct{}, numOfCores),
-		XMLfile:    "../haarcascade_frontalface_default.xml",
+		XMLfile:    "./haarcascade_frontalface_default.xml",
 		videos:     make(map[int32]Video),
 		switcher:   make(chan int32),
 		dataBuffer: make(chan Video, numOfCores)}
