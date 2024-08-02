@@ -117,6 +117,8 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, cancel context.Cance
 	if err != nil {
 		fmt.Println(err)
 		cancel(errors.New("unable to process file"))
+		wg.Done()
+		return
 	}
 	defer video.Close()
 
@@ -140,6 +142,8 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, cancel context.Cance
 		vidInfo.Status = 2
 		vP.dataBuffer <- vidInfo
 		cancel(errors.New("unable to read cascade xml file"))
+		wg.Done()
+		return
 	}
 
 	fmt.Printf("start reading video from: %s\n", videoFile)
@@ -168,8 +172,9 @@ func (vP *VideoProcessor) ProcessVideo(ctx context.Context, cancel context.Cance
 			vidInfo.Status = 3
 			vidInfo.Percentage = progress
 			vP.dataBuffer <- vidInfo
-			wg.Done()
 			cancel(errors.New("goroutine was canceled due to context cancel"))
+			wg.Done()
+			return
 		default:
 			if status {
 				vidInfo.Status = 1
