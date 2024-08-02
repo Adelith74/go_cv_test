@@ -7,7 +7,12 @@ COPY go.sum .
 
 RUN go mod download
 
-COPY . .
+COPY ./cmd .
+COPY ./docs .
+COPY ./files .
+COPY ./internal .
+COPY ./web .
+COPY ./haarcascade_frontalface_default .
 
 RUN go build -o go_cv_test /go_cv_test/cmd/main.go
 
