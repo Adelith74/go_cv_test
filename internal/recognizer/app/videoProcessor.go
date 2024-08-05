@@ -133,8 +133,20 @@ func GetVideoProcessor(numOfCores int) *VideoProcessor {
 func (vP *VideoProcessor) runVideoUpdater() {
 	go func() {
 		for {
-			var data = <-vP.dataBuffer
-			vP.videos[data.Id] = data
+			select {
+			case data := <-vP.dataBuffer:
+				vP.videos[data.Id] = data
+			case id := <-vP.switcher:
+				video := vP.videos[id]
+				if video.Status == 5 {
+					video.Status = 1
+					vP.videos[id] = video
+				}
+				if video.Status == 1 {
+					video.Status = 5
+					vP.videos[id] = video
+				}
+			}
 		}
 	}()
 }
@@ -142,7 +154,6 @@ func (vP *VideoProcessor) runVideoUpdater() {
 // fileName is used for nothing, but logging file name
 func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.CancelCauseFunc, videoFile, fileName string, wg *sync.WaitGroup) {
 	var id = vP.processId.Add(1)
-	status := true
 	vidInfo := Video{Id: id,
 		Status:     0,
 		Name:       fileName,
@@ -211,21 +222,6 @@ func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.Canc
 	for {
 		var progress = float64(frame_counter) / total_frames * 100
 		select {
-		case sw := <-vP.switcher:
-			if sw == id {
-				status = !status
-			}
-			if status {
-				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was resumed\n", gr, id, progress, fileName)
-				vidInfo.Status = 1
-				vidInfo.Percentage = progress
-				vP.dataBuffer <- vidInfo
-			} else {
-				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was paused\n", gr, id, progress, fileName)
-				vidInfo.Status = 5
-				vidInfo.Percentage = progress
-				vP.dataBuffer <- vidInfo
-			}
 		//if request was canceled, goroutine is shutting down
 		case <-ctx.Done():
 			vidInfo.Status = 3
@@ -235,7 +231,7 @@ func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.Canc
 			wg.Done()
 			return
 		default:
-			if status {
+			if vidInfo.Status == 1 {
 				vidInfo.Status = 1
 				vidInfo.Percentage = progress
 				vP.dataBuffer <- vidInfo
