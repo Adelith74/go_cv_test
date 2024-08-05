@@ -1,4 +1,4 @@
-FROM gocv/opencv:latest
+FROM adelith/work:face-recognition
 
 WORKDIR /go_cv_test
 
@@ -7,12 +7,7 @@ COPY go.sum .
 
 RUN go mod download
 
-COPY ./cmd .
-COPY ./docs .
-COPY ./files .
-COPY ./internal .
-COPY ./web .
-COPY ./haarcascade_frontalface_default .
+COPY . .
 
 RUN go build -o go_cv_test /go_cv_test/cmd/main.go
 
