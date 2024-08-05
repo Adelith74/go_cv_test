@@ -16,7 +16,7 @@ import (
 
 	"gocv.io/x/gocv"
 
-	"github.com/dimuls/face"
+	face "go_cv_test/internal/recognizer"
 )
 
 // Путь до папки с моделями. Папка должна содержать следующий файлы: dlib_face_recognition_resnet_model_v1.dat,
@@ -142,7 +142,7 @@ func (vP *VideoProcessor) runVideoUpdater() {
 }
 
 // fileName is used for nothing, but logging file name
-func (vP *VideoProcessor) runRecognizer(ctx context.Context, cancel context.CancelCauseFunc, videoFile, fileName string, wg *sync.WaitGroup) {
+func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.CancelCauseFunc, videoFile, fileName string, wg *sync.WaitGroup) {
 	var id = vP.processId.Add(1)
 	status := true
 	vidInfo := Video{Id: id,

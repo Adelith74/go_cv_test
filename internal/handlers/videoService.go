@@ -4,7 +4,7 @@ import (
 	"log"
 	"runtime"
 
-	model "go_cv_test/internal/model"
+	model "go_cv_test/internal/recognizer/app"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"

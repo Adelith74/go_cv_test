@@ -54,7 +54,7 @@ func (service *VideoService) UploadVideo(c *gin.Context) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	ctx, cancel := context.WithCancelCause(c.Request.Context())
-	go service.vP.ProcessVideo(ctx, cancel, path, service.vP.XMLfile, file.Filename, &wg)
+	go service.vP.RunRecognizer(ctx, cancel, path, file.Filename, &wg)
 	wg.Wait()
 	if ctx.Err() == context.Canceled {
 		c.String(http.StatusBadRequest, fmt.Sprintf("Request for '%s' was aborted due to: %s", file.Filename, ctx.Err().Error()))
