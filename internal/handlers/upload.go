@@ -44,7 +44,7 @@ func (service *VideoService) UploadVideo(c *gin.Context) {
 	log.Println(file.Filename + " was recieved")
 	// Upload the file to specific dst.
 	filename := filepath.Base(file.Filename)
-	path := "../files/" + filename
+	path := "./files/" + filename
 	if err := c.SaveUploadedFile(file, path); err != nil {
 		c.String(http.StatusBadRequest, "upload file err: %s", err.Error())
 		return

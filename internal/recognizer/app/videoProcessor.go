@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"image/color"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -22,11 +20,11 @@ import (
 // Путь до папки с моделями. Папка должна содержать следующий файлы: dlib_face_recognition_resnet_model_v1.dat,
 // mmod_human_face_detector.dat, shape_predictor_68_face_landmarks.dat. Архивы с этими файлами можно скачать из
 // https://github.com/davisking/dlib-models.
-const modelsPath = "./example/simple-face-recognizer/models"
+const modelsPath = "./internal/recognizer/app/models"
 
 // Путь до папки с персонами. Папка должна содержать на первом уровне папки, где название папки ― имя персоны,
 // а на втором уровне ― файлы с фотографиями лица соответствующей персоны.
-const personsPath = "./example/simple-face-recognizer/persons"
+const personsPath = "./internal/recognizer/app/persons"
 
 // ID оборудования для получения видеопотока. В нашем случае 0 ― это ID стандартной веб-камеры.
 const deviceID = 0
@@ -161,10 +159,10 @@ func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.Canc
 	detector, err := face.NewDetector(path.Join(modelsPath, "mmod_human_face_detector.dat"))
 	// Check that detecor init successful
 	if err != nil {
-		fmt.Printf("Error at detecor init stage")
+		fmt.Printf("Error at detecor init stage: %s\n", err.Error())
 		vidInfo.Status = 2
 		vP.dataBuffer <- vidInfo
-		cancel(errors.New("unable to init face detector"))
+		cancel(errors.New("unable to init face detector: " + err.Error()))
 		wg.Done()
 		return
 	}
@@ -176,10 +174,10 @@ func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.Canc
 		path.Join(modelsPath, "dlib_face_recognition_resnet_model_v1.dat"))
 	// Check that recognizer init successful
 	if err != nil {
-		fmt.Printf("Error at recognizer init stage")
+		fmt.Printf("Error at recognizer init stage %s\n", err.Error())
 		vidInfo.Status = 2
 		vP.dataBuffer <- vidInfo
-		cancel(errors.New("unable to init face recognizer"))
+		cancel(errors.New("unable to init face recognizer: " + err.Error()))
 		wg.Done()
 		return
 	}
@@ -209,94 +207,85 @@ func (vP *VideoProcessor) RunRecognizer(ctx context.Context, cancel context.Canc
 	img := gocv.NewMat()
 	defer img.Close()
 
+	fmt.Printf("start reading video from: %s\n", videoFile)
 	for {
-
-		// Пока не получим кадр продолжаем цикл.
-		if !video.Read(&img) {
-			continue
-		}
-
-		fmt.Printf("start reading video from: %s\n", videoFile)
-
-		// Выявляем лица в кадре.
-		detects, err := detector.Detect(img)
-		if err != nil {
-			log.Fatalf("detect faces: %v", err)
-		}
-
-		for {
-			var progress = float64(frame_counter) / total_frames * 100
-			select {
-			case sw := <-vP.switcher:
-				if sw == id {
-					status = !status
-				}
-				if status {
-					log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was resumed\n", gr, id, progress, fileName)
-					vidInfo.Status = 1
-					vidInfo.Percentage = progress
-					vP.dataBuffer <- vidInfo
-				} else {
-					log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was paused\n", gr, id, progress, fileName)
-					vidInfo.Status = 5
-					vidInfo.Percentage = progress
-					vP.dataBuffer <- vidInfo
-				}
-			//if request was canceled, goroutine is shutting down
-			case <-ctx.Done():
-				vidInfo.Status = 3
+		var progress = float64(frame_counter) / total_frames * 100
+		select {
+		case sw := <-vP.switcher:
+			if sw == id {
+				status = !status
+			}
+			if status {
+				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was resumed\n", gr, id, progress, fileName)
+				vidInfo.Status = 1
 				vidInfo.Percentage = progress
 				vP.dataBuffer <- vidInfo
-				cancel(errors.New("goroutine was canceled due to context cancel"))
-				wg.Done()
-				return
-			default:
-				if status {
-					vidInfo.Status = 1
-					vidInfo.Percentage = progress
+			} else {
+				log.Printf("goroutine: %d, processId: %d - %.2f%%: Processing of %s was paused\n", gr, id, progress, fileName)
+				vidInfo.Status = 5
+				vidInfo.Percentage = progress
+				vP.dataBuffer <- vidInfo
+			}
+		//if request was canceled, goroutine is shutting down
+		case <-ctx.Done():
+			vidInfo.Status = 3
+			vidInfo.Percentage = progress
+			vP.dataBuffer <- vidInfo
+			cancel(errors.New("goroutine was canceled due to context cancel"))
+			wg.Done()
+			return
+		default:
+			if status {
+				vidInfo.Status = 1
+				vidInfo.Percentage = progress
+				vP.dataBuffer <- vidInfo
+				if ok := video.Read(&img); !ok {
+					fmt.Printf("cannot read video from file %s\n", videoFile)
+					vidInfo.Status = 4
+					vidInfo.Percentage = 100.0
 					vP.dataBuffer <- vidInfo
-					if ok := video.Read(&img); !ok {
-						fmt.Printf("cannot read video from file %s\n", videoFile)
-						vidInfo.Status = 4
-						vidInfo.Percentage = 100.0
-						vP.dataBuffer <- vidInfo
-						wg.Done()
-						return
+					wg.Done()
+					return
+				}
+				if img.Empty() {
+					continue
+				}
+				// Выявляем лица в кадре.
+				detects, err := detector.Detect(img)
+				if err != nil {
+					log.Fatalf("detect faces: %v", err)
+				}
+				// detect faces
+				// Для каждого выявленного лица.
+				for _, detect := range detects {
+
+					// Получаем вектор выявленного лица.
+					descriptor, err := recognizer.Recognize(img, detect.Rectangle, padding, jittering)
+					if err != nil {
+						log.Fatalf("recognize face: %v", err)
 					}
-					if img.Empty() {
-						continue
+
+					// Ищем в массиве векторов известных лиц наиболее близкое (по евклиду) лицо.
+					person, distance := findPerson(persons, descriptor)
+
+					// Рисуем прямоугольник выявленного лица.
+					//gocv.Rectangle(&img, detect.Rectangle, blue, 1)
+
+					// Если расстояние между найденным известным лицом и выявленным лицом меньше
+					// какого-то порога, то пишем имя найденного известного лица над нарисованным
+					// прямоугольником.
+					if distance <= matchDistance {
+						log.Printf("goroutine: %d, processId: %d - %.2f%%: found %s on frame %d of %s\n", gr, id, progress, person.Name, frame_counter, fileName)
+						//gocv.PutText(&img, person.Name, image.Point{
+						//	X: detect.Rectangle.Min.X,
+						//	Y: detect.Rectangle.Min.Y,
+						//}, gocv.FontHersheyComplex, 1, blue, 1)
 					}
-					// detect faces
-					// Для каждого выявленного лица.
-					for _, detect := range detects {
-
-						// Получаем вектор выявленного лица.
-						descriptor, err := recognizer.Recognize(img, detect.Rectangle, padding, jittering)
-						if err != nil {
-							log.Fatalf("recognize face: %v", err)
-						}
-
-						// Ищем в массиве векторов известных лиц наиболее близкое (по евклиду) лицо.
-						person, distance := findPerson(persons, descriptor)
-
-						// Рисуем прямоугольник выявленного лица.
-						gocv.Rectangle(&img, detect.Rectangle, blue, 1)
-
-						// Если расстояние между найденным известным лицом и выявленным лицом меньше
-						// какого-то порога, то пишем имя найденного известного лица над нарисованным
-						// прямоугольником.
-						if distance <= matchDistance {
-							gocv.PutText(&img, person.Name, image.Point{
-								X: detect.Rectangle.Min.X,
-								Y: detect.Rectangle.Min.Y,
-							}, gocv.FontHersheyComplex, 1, blue, 1)
-						}
-					}
+					frame_counter++
 				}
 			}
 		}
 	}
-
 }
 
 // Вычисление евклидового расстояния.
@@ -355,7 +344,7 @@ func loadPersons(detector *face.Detector, recognizer *face.Recognizer, personsPa
 		}
 
 		// Читаем директорию персоны.
-		personsFiles, err := ioutil.ReadDir(path.Join(personsPath, personDir.Name()))
+		personsFiles, err := os.ReadDir(path.Join(personsPath, personDir.Name()))
 		if err != nil {
 			log.Fatalf("read person directory: %v", err)
 		}
